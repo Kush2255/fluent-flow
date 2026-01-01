@@ -11,63 +11,78 @@ interface FloatingOrbProps {
   generateSuggestion?: (transcript: string) => Promise<string>;
 }
 
-// Demo suggestion generator - provides direct, informative responses
+// Demo suggestion generator - infers intent from incomplete/partial speech
 // Never asks questions, never uses generic acknowledgments
 const generateDemoSuggestion = (transcript: string): string => {
-  const lowerTranscript = transcript.toLowerCase();
+  const lower = transcript.toLowerCase().replace(/[.,!?]/g, '').trim();
+  const words = lower.split(/\s+/);
   
-  // Budget / cost discussions
-  if (lowerTranscript.includes("budget") || lowerTranscript.includes("cost") || lowerTranscript.includes("expensive")) {
+  // Infer intent from partial words and fragments
+  const hasPartial = (patterns: string[]) => 
+    patterns.some(p => lower.includes(p) || words.some(w => w.startsWith(p) || p.startsWith(w)));
+
+  // Budget / cost - catches "budg", "cost", "expen", "price", "money"
+  if (hasPartial(["budg", "cost", "expen", "price", "money", "afford", "cheap"])) {
     return "We can reduce costs by 20% if we phase the rollout over two quarters instead of launching everything at once.";
   }
   
-  // Timeline / deadline discussions
-  if (lowerTranscript.includes("deadline") || lowerTranscript.includes("timeline") || lowerTranscript.includes("when")) {
+  // Timeline / deadline - catches "dead", "time", "when", "by fri", "next week"
+  if (hasPartial(["dead", "timeli", "when", "by fri", "next week", "how long", "eta", "deliver"])) {
     return "The realistic timeline is six weeks, accounting for testing and one round of revisions.";
   }
   
-  // Meeting / schedule discussions
-  if (lowerTranscript.includes("meeting") || lowerTranscript.includes("schedule") || lowerTranscript.includes("calendar")) {
+  // Meeting / schedule - catches "meet", "sched", "call", "sync", "avail"
+  if (hasPartial(["meet", "sched", "call", "sync", "avail", "calendar", "book", "slot"])) {
     return "Tuesday at 2 PM works best since that avoids the sprint planning overlap.";
   }
   
-  // Project / feature discussions
-  if (lowerTranscript.includes("project") || lowerTranscript.includes("feature") || lowerTranscript.includes("build")) {
+  // Project / feature - catches "proj", "feat", "build", "develop", "ship"
+  if (hasPartial(["proj", "feat", "build", "develop", "ship", "launch", "release", "mvp"])) {
     return "The core functionality should be authentication, dashboard, and notifications in that order.";
   }
   
-  // Problem / issue discussions
-  if (lowerTranscript.includes("problem") || lowerTranscript.includes("issue") || lowerTranscript.includes("error")) {
+  // Problem / issue - catches "prob", "issue", "error", "bug", "broken", "fix"
+  if (hasPartial(["prob", "issue", "error", "bug", "broken", "fix", "wrong", "fail", "crash"])) {
     return "The root cause is likely the API rate limit—we should implement request queuing.";
   }
   
-  // Performance / speed discussions
-  if (lowerTranscript.includes("slow") || lowerTranscript.includes("performance") || lowerTranscript.includes("fast")) {
+  // Performance - catches "slow", "perf", "fast", "speed", "optim"
+  if (hasPartial(["slow", "perf", "fast", "speed", "optim", "lag", "load", "quick"])) {
     return "Adding database indexing on the user ID column will cut query times by about 80%.";
   }
   
-  // Design / UI discussions
-  if (lowerTranscript.includes("design") || lowerTranscript.includes("interface") || lowerTranscript.includes("layout")) {
+  // Design / UI - catches "design", "ui", "ux", "layout", "look", "style"
+  if (hasPartial(["design", "ui", "ux", "layout", "look", "style", "visual", "interface"])) {
     return "A single-column layout with progressive disclosure keeps the interface clean while showing all options.";
   }
   
-  // Team / resource discussions
-  if (lowerTranscript.includes("team") || lowerTranscript.includes("resource") || lowerTranscript.includes("hire")) {
+  // Team / resource - catches "team", "resour", "hire", "staff", "people"
+  if (hasPartial(["team", "resour", "hire", "staff", "people", "headcount", "capacity"])) {
     return "We need one senior developer and one designer to hit the Q2 target.";
   }
   
-  // Strategy / approach discussions
-  if (lowerTranscript.includes("strategy") || lowerTranscript.includes("approach") || lowerTranscript.includes("plan")) {
+  // Strategy / approach - catches "strat", "approach", "plan", "how to", "way to"
+  if (hasPartial(["strat", "approach", "plan", "how to", "way to", "method", "roadmap"])) {
     return "Starting with the mobile experience first means we nail the core use case before expanding.";
   }
   
-  // Data / analytics discussions
-  if (lowerTranscript.includes("data") || lowerTranscript.includes("analytics") || lowerTranscript.includes("metrics")) {
+  // Data / analytics - catches "data", "analyt", "metric", "number", "track"
+  if (hasPartial(["data", "analyt", "metric", "number", "track", "measure", "kpi", "report"])) {
     return "The key metrics to track are daily active users, session duration, and conversion rate.";
   }
-  
-  // Enough context to provide something useful
-  if (lowerTranscript.length > 40) {
+
+  // Help / assistance - catches "help", "need", "can you", "how do"
+  if (hasPartial(["help", "need", "can you", "how do", "assist", "support"])) {
+    return "I can walk you through the setup process step by step right now.";
+  }
+
+  // Agreement / confirmation context - catches "yeah", "yes", "ok", "sure", "right"
+  if (hasPartial(["yeah", "yes", "ok", "sure", "right", "agree", "correct", "exactly"])) {
+    return "Great, let's move forward with that approach and circle back if anything changes.";
+  }
+
+  // Minimal input but something present - be proactive
+  if (words.length >= 2) {
     return "The next step is to document the requirements and share them with stakeholders by Friday.";
   }
   
@@ -112,10 +127,10 @@ const FloatingOrb = ({
   useEffect(() => {
     const trimmedTranscript = transcript.trim();
     
-    // Only process if we have new content
+    // Process with lower threshold - infer from partial input
     if (
       state === "listening" && 
-      trimmedTranscript.length > 10 && 
+      trimmedTranscript.length > 5 && 
       trimmedTranscript !== lastProcessedTranscript.current
     ) {
       lastProcessedTranscript.current = trimmedTranscript;
