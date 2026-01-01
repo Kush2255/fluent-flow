@@ -123,29 +123,42 @@ const FloatingOrb = ({
     onTranscriptChange?.(currentTranscript);
   }, [currentTranscript, onTranscriptChange]);
 
-  // Process transcript and generate suggestions
+  // Process transcript and generate suggestions - ONLY use latest input
   useEffect(() => {
     const trimmedTranscript = transcript.trim();
     
+    // Extract only the NEW portion of transcript (ignore history)
+    const previousText = lastProcessedTranscript.current;
+    const newContent = previousText 
+      ? trimmedTranscript.slice(previousText.length).trim()
+      : trimmedTranscript;
+    
     // Process with lower threshold - infer from partial input
+    // Use newContent for topic detection, full transcript only for reference
     if (
       state === "listening" && 
-      trimmedTranscript.length > 5 && 
+      newContent.length > 5 && 
       trimmedTranscript !== lastProcessedTranscript.current
     ) {
       lastProcessedTranscript.current = trimmedTranscript;
+      
+      // Clear previous suggestion immediately when new input arrives
+      setSuggestion("");
       setState("processing");
 
       const process = async () => {
         try {
           let newSuggestion: string;
           
+          // ALWAYS use only the latest segment, never accumulated history
+          const latestInput = newContent || trimmedTranscript;
+          
           if (generateSuggestion) {
-            newSuggestion = await generateSuggestion(trimmedTranscript);
+            newSuggestion = await generateSuggestion(latestInput);
           } else {
             // Simulate processing delay
-            await new Promise(resolve => setTimeout(resolve, 800));
-            newSuggestion = generateDemoSuggestion(trimmedTranscript);
+            await new Promise(resolve => setTimeout(resolve, 600));
+            newSuggestion = generateDemoSuggestion(latestInput);
           }
 
           setSuggestion(newSuggestion);
