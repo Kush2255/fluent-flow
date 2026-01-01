@@ -2,17 +2,42 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, AlertCircle } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { supabase } from "@/integrations/supabase/client";
 
 type OrbState = "idle" | "listening" | "processing" | "suggesting";
 
 interface FloatingOrbProps {
   onTranscriptChange?: (transcript: string) => void;
   onSuggestion?: (suggestion: string) => void;
-  generateSuggestion?: (transcript: string) => Promise<string>;
 }
 
-// Pure stateless response generator - processes ONLY current transcript
-const generateResponse = (transcript: string): string => {
+// Call AI edge function to generate response
+const generateAIResponse = async (transcript: string): Promise<string> => {
+  try {
+    const { data, error } = await supabase.functions.invoke("generate-response", {
+      body: { transcript },
+    });
+
+    if (error) {
+      console.error("Edge function error:", error);
+      throw error;
+    }
+
+    if (data?.error) {
+      console.error("AI error:", data.error);
+      throw new Error(data.error);
+    }
+
+    return data?.response || "Wait and listen for a moment.";
+  } catch (error) {
+    console.error("Failed to generate AI response:", error);
+    // Fallback to local response if AI fails
+    return generateLocalResponse(transcript);
+  }
+};
+
+// Local fallback response generator - used when AI is unavailable
+const generateLocalResponse = (transcript: string): string => {
   const t = transcript.toLowerCase().replace(/[.,!?'"]/g, "").trim();
   if (!t || t.length < 3) return "Wait and listen for a moment.";
 
@@ -73,8 +98,7 @@ const generateResponse = (transcript: string): string => {
 
 const FloatingOrb = ({ 
   onTranscriptChange, 
-  onSuggestion,
-  generateSuggestion 
+  onSuggestion
 }: FloatingOrbProps) => {
   const [state, setState] = useState<OrbState>("idle");
   const [suggestion, setSuggestion] = useState("");
@@ -130,18 +154,11 @@ const FloatingOrb = ({
 
       const process = async () => {
         try {
-          let newSuggestion: string;
-          
           // ALWAYS use only the latest segment, never accumulated history
           const latestInput = newContent || trimmedTranscript;
           
-          if (generateSuggestion) {
-            newSuggestion = await generateSuggestion(latestInput);
-          } else {
-            // Simulate processing delay
-            await new Promise(resolve => setTimeout(resolve, 600));
-            newSuggestion = generateResponse(latestInput);
-          }
+          // Use AI-powered response generation
+          const newSuggestion = await generateAIResponse(latestInput);
 
           setSuggestion(newSuggestion);
           onSuggestion?.(newSuggestion);
@@ -161,7 +178,7 @@ const FloatingOrb = ({
 
       process();
     }
-  }, [transcript, state, isListening, generateSuggestion, onSuggestion]);
+  }, [transcript, state, isListening, onSuggestion]);
 
   // Sync state with listening status
   useEffect(() => {
