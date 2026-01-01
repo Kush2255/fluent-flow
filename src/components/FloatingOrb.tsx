@@ -11,81 +11,63 @@ interface FloatingOrbProps {
   generateSuggestion?: (transcript: string) => Promise<string>;
 }
 
-// Demo suggestion generator - infers intent from incomplete/partial speech
-// Never asks questions, never uses generic acknowledgments
-const generateDemoSuggestion = (transcript: string): string => {
-  const lower = transcript.toLowerCase().replace(/[.,!?]/g, '').trim();
-  const words = lower.split(/\s+/);
-  
-  // Infer intent from partial words and fragments
-  const hasPartial = (patterns: string[]) => 
-    patterns.some(p => lower.includes(p) || words.some(w => w.startsWith(p) || p.startsWith(w)));
+// Pure stateless response generator - processes ONLY current transcript
+const generateResponse = (transcript: string): string => {
+  const t = transcript.toLowerCase().replace(/[.,!?'"]/g, "").trim();
+  if (!t || t.length < 3) return "Wait and listen for a moment.";
 
-  // Budget / cost - catches "budg", "cost", "expen", "price", "money"
-  if (hasPartial(["budg", "cost", "expen", "price", "money", "afford", "cheap"])) {
-    return "We can reduce costs by 20% if we phase the rollout over two quarters instead of launching everything at once.";
-  }
-  
-  // Timeline / deadline - catches "dead", "time", "when", "by fri", "next week"
-  if (hasPartial(["dead", "timeli", "when", "by fri", "next week", "how long", "eta", "deliver"])) {
-    return "The realistic timeline is six weeks, accounting for testing and one round of revisions.";
-  }
-  
-  // Meeting / schedule - catches "meet", "sched", "call", "sync", "avail"
-  if (hasPartial(["meet", "sched", "call", "sync", "avail", "calendar", "book", "slot"])) {
-    return "Tuesday at 2 PM works best since that avoids the sprint planning overlap.";
-  }
-  
-  // Project / feature - catches "proj", "feat", "build", "develop", "ship"
-  if (hasPartial(["proj", "feat", "build", "develop", "ship", "launch", "release", "mvp"])) {
-    return "The core functionality should be authentication, dashboard, and notifications in that order.";
-  }
-  
-  // Problem / issue - catches "prob", "issue", "error", "bug", "broken", "fix"
-  if (hasPartial(["prob", "issue", "error", "bug", "broken", "fix", "wrong", "fail", "crash"])) {
-    return "The root cause is likely the API rate limit—we should implement request queuing.";
-  }
-  
-  // Performance - catches "slow", "perf", "fast", "speed", "optim"
-  if (hasPartial(["slow", "perf", "fast", "speed", "optim", "lag", "load", "quick"])) {
-    return "Adding database indexing on the user ID column will cut query times by about 80%.";
-  }
-  
-  // Design / UI - catches "design", "ui", "ux", "layout", "look", "style"
-  if (hasPartial(["design", "ui", "ux", "layout", "look", "style", "visual", "interface"])) {
-    return "A single-column layout with progressive disclosure keeps the interface clean while showing all options.";
-  }
-  
-  // Team / resource - catches "team", "resour", "hire", "staff", "people"
-  if (hasPartial(["team", "resour", "hire", "staff", "people", "headcount", "capacity"])) {
-    return "We need one senior developer and one designer to hit the Q2 target.";
-  }
-  
-  // Strategy / approach - catches "strat", "approach", "plan", "how to", "way to"
-  if (hasPartial(["strat", "approach", "plan", "how to", "way to", "method", "roadmap"])) {
-    return "Starting with the mobile experience first means we nail the core use case before expanding.";
-  }
-  
-  // Data / analytics - catches "data", "analyt", "metric", "number", "track"
-  if (hasPartial(["data", "analyt", "metric", "number", "track", "measure", "kpi", "report"])) {
-    return "The key metrics to track are daily active users, session duration, and conversion rate.";
-  }
+  // Budget/cost/money
+  if (/budget|cost|price|expensive|cheap|afford|money|pay/.test(t))
+    return "We can cut costs by 20% with a phased rollout over two quarters.";
 
-  // Help / assistance - catches "help", "need", "can you", "how do"
-  if (hasPartial(["help", "need", "can you", "how do", "assist", "support"])) {
-    return "I can walk you through the setup process step by step right now.";
-  }
+  // Time/deadline/schedule
+  if (/deadline|timeline|when|deliver|eta|by friday|next week|how long|due/.test(t))
+    return "Six weeks is realistic, including testing and one revision cycle.";
 
-  // Agreement / confirmation context - catches "yeah", "yes", "ok", "sure", "right"
-  if (hasPartial(["yeah", "yes", "ok", "sure", "right", "agree", "correct", "exactly"])) {
-    return "Great, let's move forward with that approach and circle back if anything changes.";
-  }
+  // Meeting/calendar
+  if (/meet|schedule|call|sync|calendar|book|slot|available|tuesday|monday/.test(t))
+    return "Tuesday at 2 PM avoids the sprint planning overlap.";
 
-  // Minimal input but something present - be proactive
-  if (words.length >= 2) {
-    return "The next step is to document the requirements and share them with stakeholders by Friday.";
-  }
-  
+  // Project/feature/build
+  if (/project|feature|build|develop|ship|launch|release|mvp|product/.test(t))
+    return "Prioritize authentication, then dashboard, then notifications.";
+
+  // Problem/bug/error
+  if (/problem|issue|error|bug|broken|fix|wrong|fail|crash|not working/.test(t))
+    return "The root cause is likely the API rate limit—implement request queuing.";
+
+  // Performance/speed
+  if (/slow|performance|fast|speed|optim|lag|load|quick|latency/.test(t))
+    return "Database indexing on the user ID column cuts query times by 80%.";
+
+  // Design/UI
+  if (/design|ui|ux|layout|look|style|visual|interface|color|font/.test(t))
+    return "Single-column layout with progressive disclosure keeps it clean.";
+
+  // Team/hiring
+  if (/team|resource|hire|staff|people|headcount|capacity|developer|engineer/.test(t))
+    return "One senior developer and one designer will hit the Q2 target.";
+
+  // Strategy/planning
+  if (/strategy|approach|plan|roadmap|method|how to|way to|next step/.test(t))
+    return "Start mobile-first to nail the core use case before expanding.";
+
+  // Data/metrics
+  if (/data|analytics|metric|number|track|measure|kpi|report|insight/.test(t))
+    return "Track daily active users, session duration, and conversion rate.";
+
+  // Yes/agreement
+  if (/^(yes|yeah|ok|okay|sure|right|correct|exactly|agree|sounds good)/.test(t))
+    return "Let's move forward with that and circle back if anything changes.";
+
+  // No/disagreement
+  if (/^(no|nope|disagree|don't think|not sure|i don't)/.test(t))
+    return "We should revisit the requirements before committing to that direction.";
+
+  // Fallback for any input with substance
+  if (t.split(/\s+/).length >= 2)
+    return "Document the requirements and share with stakeholders by Friday.";
+
   return "Wait and listen for a moment.";
 };
 
@@ -158,7 +140,7 @@ const FloatingOrb = ({
           } else {
             // Simulate processing delay
             await new Promise(resolve => setTimeout(resolve, 600));
-            newSuggestion = generateDemoSuggestion(latestInput);
+            newSuggestion = generateResponse(latestInput);
           }
 
           setSuggestion(newSuggestion);
