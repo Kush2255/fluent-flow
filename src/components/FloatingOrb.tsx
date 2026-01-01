@@ -11,30 +11,64 @@ interface FloatingOrbProps {
   generateSuggestion?: (transcript: string) => Promise<string>;
 }
 
-// Simple demo suggestion generator (replace with AI later)
+// Demo suggestion generator - provides direct, informative responses
+// Never asks questions, never uses generic acknowledgments
 const generateDemoSuggestion = (transcript: string): string => {
   const lowerTranscript = transcript.toLowerCase();
   
-  if (lowerTranscript.includes("how are you") || lowerTranscript.includes("how's it going")) {
-    return "I'm doing well, thanks for asking. How about yourself?";
+  // Budget / cost discussions
+  if (lowerTranscript.includes("budget") || lowerTranscript.includes("cost") || lowerTranscript.includes("expensive")) {
+    return "We can reduce costs by 20% if we phase the rollout over two quarters instead of launching everything at once.";
   }
-  if (lowerTranscript.includes("meeting") || lowerTranscript.includes("schedule")) {
-    return "That works for me. Should we also invite the rest of the team?";
+  
+  // Timeline / deadline discussions
+  if (lowerTranscript.includes("deadline") || lowerTranscript.includes("timeline") || lowerTranscript.includes("when")) {
+    return "The realistic timeline is six weeks, accounting for testing and one round of revisions.";
   }
-  if (lowerTranscript.includes("project") || lowerTranscript.includes("deadline")) {
-    return "I think we can meet that deadline if we prioritize the core features first.";
+  
+  // Meeting / schedule discussions
+  if (lowerTranscript.includes("meeting") || lowerTranscript.includes("schedule") || lowerTranscript.includes("calendar")) {
+    return "Tuesday at 2 PM works best since that avoids the sprint planning overlap.";
   }
-  if (lowerTranscript.includes("question") || lowerTranscript.includes("?")) {
-    return "That's a good question. Let me think about that for a moment.";
+  
+  // Project / feature discussions
+  if (lowerTranscript.includes("project") || lowerTranscript.includes("feature") || lowerTranscript.includes("build")) {
+    return "The core functionality should be authentication, dashboard, and notifications in that order.";
   }
-  if (lowerTranscript.includes("thank")) {
-    return "You're welcome. Happy to help anytime.";
+  
+  // Problem / issue discussions
+  if (lowerTranscript.includes("problem") || lowerTranscript.includes("issue") || lowerTranscript.includes("error")) {
+    return "The root cause is likely the API rate limit—we should implement request queuing.";
   }
-  if (lowerTranscript.length > 50) {
-    return "I understand your point. What would be the next steps from here?";
+  
+  // Performance / speed discussions
+  if (lowerTranscript.includes("slow") || lowerTranscript.includes("performance") || lowerTranscript.includes("fast")) {
+    return "Adding database indexing on the user ID column will cut query times by about 80%.";
   }
-  if (lowerTranscript.length > 20) {
-    return "That makes sense. Could you tell me more about that?";
+  
+  // Design / UI discussions
+  if (lowerTranscript.includes("design") || lowerTranscript.includes("interface") || lowerTranscript.includes("layout")) {
+    return "A single-column layout with progressive disclosure keeps the interface clean while showing all options.";
+  }
+  
+  // Team / resource discussions
+  if (lowerTranscript.includes("team") || lowerTranscript.includes("resource") || lowerTranscript.includes("hire")) {
+    return "We need one senior developer and one designer to hit the Q2 target.";
+  }
+  
+  // Strategy / approach discussions
+  if (lowerTranscript.includes("strategy") || lowerTranscript.includes("approach") || lowerTranscript.includes("plan")) {
+    return "Starting with the mobile experience first means we nail the core use case before expanding.";
+  }
+  
+  // Data / analytics discussions
+  if (lowerTranscript.includes("data") || lowerTranscript.includes("analytics") || lowerTranscript.includes("metrics")) {
+    return "The key metrics to track are daily active users, session duration, and conversion rate.";
+  }
+  
+  // Enough context to provide something useful
+  if (lowerTranscript.length > 40) {
+    return "The next step is to document the requirements and share them with stakeholders by Friday.";
   }
   
   return "Wait and listen for a moment.";
