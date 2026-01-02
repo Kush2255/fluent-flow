@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import FloatingOrb from "@/components/FloatingOrb";
 import OrbSettings, { OrbSettingsData } from "@/components/OrbSettings";
+import ConversationHistory, { ConversationEntry } from "@/components/ConversationHistory";
 
 const STORAGE_KEY = "orb-settings";
 
@@ -13,6 +14,8 @@ const Index = () => {
   const [transcript, setTranscript] = useState("");
   const [lastSuggestion, setLastSuggestion] = useState("");
   const [isActive, setIsActive] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([]);
+  const lastAddedTranscript = useRef("");
   const [settings, setSettings] = useState<OrbSettingsData>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -26,6 +29,45 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  // Add transcript to history when it changes significantly
+  const handleTranscriptChange = useCallback((newTranscript: string) => {
+    setTranscript(newTranscript);
+    setIsActive(newTranscript.length > 0);
+  }, []);
+
+  // Add user speech and AI response to history
+  const handleSuggestion = useCallback((suggestion: string, spokenText?: string) => {
+    setLastSuggestion(suggestion);
+    
+    const now = new Date();
+    const newEntries: ConversationEntry[] = [];
+    
+    // Add the spoken text that triggered this suggestion
+    if (spokenText && spokenText !== lastAddedTranscript.current) {
+      newEntries.push({
+        id: `user-${Date.now()}`,
+        type: "user",
+        content: spokenText,
+        timestamp: now,
+      });
+      lastAddedTranscript.current = spokenText;
+    }
+    
+    // Add the AI suggestion
+    if (suggestion && suggestion !== "Wait and listen for a moment.") {
+      newEntries.push({
+        id: `ai-${Date.now()}`,
+        type: "ai",
+        content: suggestion,
+        timestamp: now,
+      });
+    }
+    
+    if (newEntries.length > 0) {
+      setConversationHistory(prev => [...prev, ...newEntries].slice(-20)); // Keep last 20
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,20 +131,8 @@ const Index = () => {
             )}
           </div>
 
-          {/* Last suggestion panel */}
-          {lastSuggestion && (
-            <div className="glass rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 rounded-full bg-orb-glow" />
-                <span className="text-sm font-medium text-foreground">
-                  Last Suggestion
-                </span>
-              </div>
-              <div className="p-4 rounded-xl bg-orb-glow/10 border border-orb-glow/20">
-                <p className="text-foreground">{lastSuggestion}</p>
-              </div>
-            </div>
-          )}
+          {/* Conversation History */}
+          <ConversationHistory entries={conversationHistory} />
 
           <div className="text-center pt-8 space-y-2">
             <p className="text-xs text-muted-foreground">
@@ -116,11 +146,8 @@ const Index = () => {
       </div>
 
       <FloatingOrb
-        onTranscriptChange={(t) => {
-          setTranscript(t);
-          setIsActive(t.length > 0);
-        }}
-        onSuggestion={setLastSuggestion}
+        onTranscriptChange={handleTranscriptChange}
+        onSuggestion={handleSuggestion}
         settings={settings}
       />
       

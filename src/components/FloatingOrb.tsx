@@ -9,7 +9,7 @@ type OrbState = "idle" | "listening" | "processing" | "suggesting";
 
 interface FloatingOrbProps {
   onTranscriptChange?: (transcript: string) => void;
-  onSuggestion?: (suggestion: string) => void;
+  onSuggestion?: (suggestion: string, spokenText?: string) => void;
   settings?: OrbSettingsData;
 }
 
@@ -184,7 +184,7 @@ const FloatingOrb = ({
           }
 
           setSuggestion(newSuggestion);
-          onSuggestion?.(newSuggestion);
+          onSuggestion?.(newSuggestion, latestInput);
           setState("suggesting");
 
           // Return to listening after showing suggestion
