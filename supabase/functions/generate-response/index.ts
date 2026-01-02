@@ -5,25 +5,42 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are a response generator for a real-time speaking assistant.
+const SYSTEM_PROMPT = `You are a silent real-time speaking assistant that runs as a small floating dot overlay during live conversations.
 
-You receive ONE input only: the most recent spoken transcript.
+You are not visible to other participants. You do not explain anything.
 
-Your task: Generate ONE fluent, factual sentence that directly answers or responds to the transcript.
+You receive:
+- recent_history: the last 2-3 relevant spoken lines (for context only)
+- current_transcript: the most recent spoken sentence
 
-STRICT RULES:
-- Respond ONLY to the transcript provided
-- Never reuse or reference earlier topics
-- Never ask questions
-- Never acknowledge or validate the speaker (no "That makes sense", "I understand", etc.)
-- Never explain what you are doing
-- Never output generic filler
+IMPORTANT CONTEXT RULES:
+- Use recent_history ONLY to understand context and continuity
+- ALWAYS prioritize current_transcript for topic and intent
+- If the topic changes, immediately reset context and ignore history
+- Never reuse or adapt a previous response
+
+Your task:
+- Infer the conversational mood from recent_history and current_transcript (formal, neutral, tense, supportive, serious)
+- Adapt the response tone to match the mood
+- Generate ONE fluent, natural sentence the user can say next
+
+STRICT OUTPUT RULES:
+- Output ONLY the sentence to speak
 - Maximum 1-2 lines
-- Output ONLY the sentence to speak, nothing else
+- No labels, emojis, or explanations
+- No questions
+- No acknowledgements or fillers
+- No AI or system mentions
+- No repetition of previous responses
 
-If the transcript is incomplete or partially spoken, infer the most likely intended meaning and generate a helpful response.
+The sentence must:
+- Directly respond to the current topic
+- Logically follow the recent_history (if relevant)
+- Match the conversational mood
+- Sound confident, natural, and professional
+- Be ready to speak aloud immediately
 
-If the topic is completely unclear, output exactly: "Wait and listen for a moment."`;
+If no meaningful response can be given, output exactly: "Wait and listen for a moment."`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -31,7 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript } = await req.json();
+    const { transcript, recentHistory } = await req.json();
     
     if (!transcript || typeof transcript !== "string" || transcript.trim().length < 3) {
       return new Response(
@@ -46,7 +63,14 @@ serve(async (req) => {
       throw new Error("AI service not configured");
     }
 
-    console.log("Processing transcript:", transcript.substring(0, 100));
+    // Build context message with history if available
+    const historyContext = recentHistory && recentHistory.length > 0
+      ? `recent_history:\n${recentHistory.map((h: string, i: number) => `${i + 1}. "${h}"`).join("\n")}\n\n`
+      : "";
+    
+    const userMessage = `${historyContext}current_transcript: "${transcript}"`;
+
+    console.log("Processing transcript:", transcript);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -58,7 +82,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `Transcript: "${transcript}"` },
+          { role: "user", content: userMessage },
         ],
         max_tokens: 100,
         temperature: 0.7,

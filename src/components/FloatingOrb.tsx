@@ -11,11 +11,11 @@ interface FloatingOrbProps {
   onSuggestion?: (suggestion: string) => void;
 }
 
-// Call AI edge function to generate response
-const generateAIResponse = async (transcript: string): Promise<string> => {
+// Call AI edge function to generate response with conversation history
+const generateAIResponse = async (transcript: string, recentHistory: string[]): Promise<string> => {
   try {
     const { data, error } = await supabase.functions.invoke("generate-response", {
-      body: { transcript },
+      body: { transcript, recentHistory },
     });
 
     if (error) {
@@ -105,6 +105,7 @@ const FloatingOrb = ({
   const [permissionDenied, setPermissionDenied] = useState(false);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const lastProcessedTranscript = useRef("");
+  const conversationHistory = useRef<string[]>([]);
 
   const {
     transcript,
@@ -154,11 +155,21 @@ const FloatingOrb = ({
 
       const process = async () => {
         try {
-          // ALWAYS use only the latest segment, never accumulated history
+          // Use the latest segment for current topic
           const latestInput = newContent || trimmedTranscript;
           
-          // Use AI-powered response generation
-          const newSuggestion = await generateAIResponse(latestInput);
+          // Keep last 2-3 history items for context
+          const recentHistory = conversationHistory.current.slice(-3);
+          
+          // Use AI-powered response generation with history
+          const newSuggestion = await generateAIResponse(latestInput, recentHistory);
+          
+          // Add current input to history after processing
+          conversationHistory.current.push(latestInput);
+          // Keep only last 5 items
+          if (conversationHistory.current.length > 5) {
+            conversationHistory.current = conversationHistory.current.slice(-5);
+          }
 
           setSuggestion(newSuggestion);
           onSuggestion?.(newSuggestion);
@@ -207,6 +218,7 @@ const FloatingOrb = ({
       setState("idle");
       setSuggestion("");
       lastProcessedTranscript.current = "";
+      conversationHistory.current = [];
     }
   }, [state, startListening, stopListening, resetTranscript]);
 
