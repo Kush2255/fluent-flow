@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageSquare, Sparkles, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 export interface ConversationEntry {
@@ -12,9 +12,10 @@ export interface ConversationEntry {
 interface ConversationHistoryProps {
   entries: ConversationEntry[];
   maxVisible?: number;
+  onClear?: () => void;
 }
 
-const ConversationHistory = ({ entries, maxVisible = 6 }: ConversationHistoryProps) => {
+const ConversationHistory = ({ entries, maxVisible = 6, onClear }: ConversationHistoryProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
@@ -32,11 +33,11 @@ const ConversationHistory = ({ entries, maxVisible = 6 }: ConversationHistoryPro
       className="glass rounded-2xl overflow-hidden"
     >
       {/* Header */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-orb-surface/30 transition-colors"
-      >
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between p-4">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
           <div className="w-3 h-3 rounded-full bg-orb-glow animate-pulse" />
           <span className="text-sm font-medium text-orb-text">
             Conversation History
@@ -44,13 +45,22 @@ const ConversationHistory = ({ entries, maxVisible = 6 }: ConversationHistoryPro
           <span className="text-xs text-orb-text-muted px-2 py-0.5 rounded-full bg-orb-surface/50">
             {entries.length}
           </span>
-        </div>
-        {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-orb-text-muted" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-orb-text-muted" />
+          {isExpanded ? (
+            <ChevronUp className="w-4 h-4 text-orb-text-muted" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-orb-text-muted" />
+          )}
+        </button>
+        {onClear && (
+          <button
+            onClick={onClear}
+            className="p-2 rounded-lg hover:bg-orb-surface/50 text-orb-text-muted hover:text-red-400 transition-colors"
+            title="Clear history"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         )}
-      </button>
+      </div>
 
       {/* Content */}
       <AnimatePresence>

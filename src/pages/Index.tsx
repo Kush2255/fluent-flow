@@ -69,6 +69,13 @@ const Index = () => {
     }
   }, []);
 
+  const handleClearHistory = useCallback(() => {
+    setConversationHistory([]);
+    lastAddedTranscript.current = "";
+    setLastSuggestion("");
+    setTranscript("");
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-20">
@@ -132,7 +139,7 @@ const Index = () => {
           </div>
 
           {/* Conversation History */}
-          <ConversationHistory entries={conversationHistory} />
+          <ConversationHistory entries={conversationHistory} onClear={handleClearHistory} />
 
           <div className="text-center pt-8 space-y-2">
             <p className="text-xs text-muted-foreground">
