@@ -4,12 +4,13 @@ import { Mic, MicOff, Volume2, AlertCircle } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { supabase } from "@/integrations/supabase/client";
 import { OrbSettingsData } from "@/components/OrbSettings";
+import { SpeakAssistResponse, DEFAULT_RESPONSE } from "@/types/speakassist";
 
 type OrbState = "idle" | "listening" | "processing" | "suggesting";
 
 interface FloatingOrbProps {
   onTranscriptChange?: (transcript: string) => void;
-  onSuggestion?: (suggestion: string, spokenText?: string) => void;
+  onSuggestion?: (response: SpeakAssistResponse, spokenText?: string) => void;
   settings?: OrbSettingsData;
 }
 
@@ -18,7 +19,7 @@ const generateAIResponse = async (
   transcript: string, 
   recentHistory: string[],
   settings?: OrbSettingsData
-): Promise<string> => {
+): Promise<SpeakAssistResponse> => {
   try {
     const { data, error } = await supabase.functions.invoke("generate-response", {
       body: { 
@@ -39,72 +40,16 @@ const generateAIResponse = async (
       throw new Error(data.error);
     }
 
-    return data?.response || "Wait and listen for a moment.";
+    // Validate the response structure
+    if (data?.suggestions && Array.isArray(data.suggestions)) {
+      return data as SpeakAssistResponse;
+    }
+
+    return DEFAULT_RESPONSE;
   } catch (error) {
     console.error("Failed to generate AI response:", error);
-    // Fallback to local response if AI fails
-    return generateLocalResponse(transcript);
+    return DEFAULT_RESPONSE;
   }
-};
-
-// Local fallback response generator - used when AI is unavailable
-const generateLocalResponse = (transcript: string): string => {
-  const t = transcript.toLowerCase().replace(/[.,!?'"]/g, "").trim();
-  if (!t || t.length < 3) return "Wait and listen for a moment.";
-
-  // Budget/cost/money
-  if (/budget|cost|price|expensive|cheap|afford|money|pay/.test(t))
-    return "We can cut costs by 20% with a phased rollout over two quarters.";
-
-  // Time/deadline/schedule
-  if (/deadline|timeline|when|deliver|eta|by friday|next week|how long|due/.test(t))
-    return "Six weeks is realistic, including testing and one revision cycle.";
-
-  // Meeting/calendar
-  if (/meet|schedule|call|sync|calendar|book|slot|available|tuesday|monday/.test(t))
-    return "Tuesday at 2 PM avoids the sprint planning overlap.";
-
-  // Project/feature/build
-  if (/project|feature|build|develop|ship|launch|release|mvp|product/.test(t))
-    return "Prioritize authentication, then dashboard, then notifications.";
-
-  // Problem/bug/error
-  if (/problem|issue|error|bug|broken|fix|wrong|fail|crash|not working/.test(t))
-    return "The root cause is likely the API rate limit—implement request queuing.";
-
-  // Performance/speed
-  if (/slow|performance|fast|speed|optim|lag|load|quick|latency/.test(t))
-    return "Database indexing on the user ID column cuts query times by 80%.";
-
-  // Design/UI
-  if (/design|ui|ux|layout|look|style|visual|interface|color|font/.test(t))
-    return "Single-column layout with progressive disclosure keeps it clean.";
-
-  // Team/hiring
-  if (/team|resource|hire|staff|people|headcount|capacity|developer|engineer/.test(t))
-    return "One senior developer and one designer will hit the Q2 target.";
-
-  // Strategy/planning
-  if (/strategy|approach|plan|roadmap|method|how to|way to|next step/.test(t))
-    return "Start mobile-first to nail the core use case before expanding.";
-
-  // Data/metrics
-  if (/data|analytics|metric|number|track|measure|kpi|report|insight/.test(t))
-    return "Track daily active users, session duration, and conversion rate.";
-
-  // Yes/agreement
-  if (/^(yes|yeah|ok|okay|sure|right|correct|exactly|agree|sounds good)/.test(t))
-    return "Let's move forward with that and circle back if anything changes.";
-
-  // No/disagreement
-  if (/^(no|nope|disagree|don't think|not sure|i don't)/.test(t))
-    return "We should revisit the requirements before committing to that direction.";
-
-  // Fallback for any input with substance
-  if (t.split(/\s+/).length >= 2)
-    return "Document the requirements and share with stakeholders by Friday.";
-
-  return "Wait and listen for a moment.";
 };
 
 const FloatingOrb = ({ 
@@ -113,7 +58,7 @@ const FloatingOrb = ({
   settings,
 }: FloatingOrbProps) => {
   const [state, setState] = useState<OrbState>("idle");
-  const [suggestion, setSuggestion] = useState("");
+  const [currentResponse, setCurrentResponse] = useState<SpeakAssistResponse | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const lastProcessedTranscript = useRef("");
@@ -134,7 +79,7 @@ const FloatingOrb = ({
   });
 
   const isActive = state !== "idle";
-  const showSuggestion = state === "suggesting" && suggestion;
+  const showSuggestion = state === "suggesting" && currentResponse;
   const currentTranscript = transcript + (interimTranscript ? " " + interimTranscript : "");
 
   // Notify parent of transcript changes
@@ -153,7 +98,6 @@ const FloatingOrb = ({
       : trimmedTranscript;
     
     // Process with lower threshold - infer from partial input
-    // Use newContent for topic detection, full transcript only for reference
     if (
       state === "listening" && 
       newContent.length > 5 && 
@@ -162,7 +106,7 @@ const FloatingOrb = ({
       lastProcessedTranscript.current = trimmedTranscript;
       
       // Clear previous suggestion immediately when new input arrives
-      setSuggestion("");
+      setCurrentResponse(null);
       setState("processing");
 
       const process = async () => {
@@ -174,7 +118,7 @@ const FloatingOrb = ({
           const recentHistory = conversationHistory.current.slice(-3);
           
           // Use AI-powered response generation with history and settings
-          const newSuggestion = await generateAIResponse(latestInput, recentHistory, settings);
+          const response = await generateAIResponse(latestInput, recentHistory, settings);
           
           // Add current input to history after processing
           conversationHistory.current.push(latestInput);
@@ -183,8 +127,8 @@ const FloatingOrb = ({
             conversationHistory.current = conversationHistory.current.slice(-5);
           }
 
-          setSuggestion(newSuggestion);
-          onSuggestion?.(newSuggestion, latestInput);
+          setCurrentResponse(response);
+          onSuggestion?.(response, latestInput);
           setState("suggesting");
 
           // Return to listening after showing suggestion
@@ -192,7 +136,7 @@ const FloatingOrb = ({
             if (isListening) {
               setState("listening");
             }
-          }, 4000);
+          }, 6000); // Extended for more content
         } catch (error) {
           console.error("Error generating suggestion:", error);
           setState("listening");
@@ -201,7 +145,7 @@ const FloatingOrb = ({
 
       process();
     }
-  }, [transcript, state, isListening, onSuggestion]);
+  }, [transcript, state, isListening, onSuggestion, settings]);
 
   // Sync state with listening status
   useEffect(() => {
@@ -228,11 +172,21 @@ const FloatingOrb = ({
     } else {
       stopListening();
       setState("idle");
-      setSuggestion("");
+      setCurrentResponse(null);
       lastProcessedTranscript.current = "";
       conversationHistory.current = [];
     }
   }, [state, startListening, stopListening, resetTranscript]);
+
+  // Helper to get speaking opportunity color
+  const getOpportunityColor = (opportunity: string) => {
+    switch (opportunity) {
+      case "good": return "bg-green-500";
+      case "neutral": return "bg-yellow-500";
+      case "listen": return "bg-orb-text-muted";
+      default: return "bg-orb-text-muted";
+    }
+  };
 
   if (!isSupported) {
     return (
@@ -392,20 +346,53 @@ const FloatingOrb = ({
             )}
           </AnimatePresence>
 
-          {/* Suggestion bubble */}
+          {/* Enhanced suggestion panel with SpeakAssist data */}
           <AnimatePresence>
-            {showSuggestion && (
+            {showSuggestion && currentResponse && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.8, x: 0 }}
                 animate={{ opacity: 1, scale: 1, x: 10 }}
                 exit={{ opacity: 0, scale: 0.8, x: 0 }}
                 transition={{ type: "spring", damping: 20, stiffness: 300 }}
-                className="absolute left-full top-1/2 -translate-y-1/2 ml-4 max-w-xs"
+                className="absolute left-full top-1/2 -translate-y-1/2 ml-4 w-72"
               >
-                <div className="glass rounded-2xl px-4 py-3 orb-glow">
-                  <p className="text-sm text-orb-text leading-relaxed">
-                    {suggestion}
-                  </p>
+                <div className="glass rounded-2xl p-4 orb-glow space-y-3">
+                  {/* Assistive cue and timing */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-orb-glow">
+                      {currentResponse.assistive_cue}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-2 h-2 rounded-full ${getOpportunityColor(currentResponse.speaking_opportunity)}`} />
+                      <span className="text-xs text-orb-text-muted capitalize">
+                        {currentResponse.speaking_opportunity}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Topic and mood */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-orb-surface/50 text-orb-text-muted">
+                      {currentResponse.topic}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-orb-surface/50 text-orb-text-muted">
+                      {currentResponse.group_mood}
+                    </span>
+                  </div>
+
+                  {/* Suggestions */}
+                  <div className="space-y-2">
+                    {currentResponse.suggestions.map((suggestion, index) => (
+                      <div
+                        key={index}
+                        className="p-2 rounded-lg bg-orb-surface/30 border border-orb-glow/20 hover:border-orb-glow/40 transition-colors cursor-pointer"
+                      >
+                        <p className="text-sm text-orb-text leading-relaxed">
+                          {suggestion}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-orb-surface rotate-45 glass" />
               </motion.div>

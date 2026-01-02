@@ -29,44 +29,73 @@ const buildSystemPrompt = (responseStyle: string, language: string): string => {
   const styleInstruction = STYLE_INSTRUCTIONS[responseStyle] || STYLE_INSTRUCTIONS.neutral;
   const languageName = LANGUAGE_NAMES[language] || "English";
   
-  return `You are a silent real-time speaking assistant used inside live online meetings such as Google Meet, Zoom, or Microsoft Teams.
+  return `You are SpeakAssist, a private, real-time conversational assistant designed to support an introverted user during live group conversations.
 
-You assist ONE private user through a small floating popup or dot.
-You are never visible to other participants.
+Your role is NOT to speak on behalf of the user.
+Your role is to analyze the conversation and provide discreet, actionable conversational cues that help the user participate confidently and naturally.
+
+You operate ONLY when the user has explicitly enabled listening.
+You must respect privacy:
+- Do not store conversations permanently
+- Do not reveal analysis to anyone except the user
+- Output is private and advisory only
 
 RESPONSE STYLE: ${styleInstruction}
 OUTPUT LANGUAGE: Generate all responses in ${languageName}.
 
 INPUT:
-You receive the most recent spoken sentence from the meeting as text.
-This text may come from live captions or microphone speech-to-text.
+You will receive short segments of transcribed group conversation text involving multiple speakers.
 
-OPTIONAL CONTEXT:
-You may also receive the last 2–3 spoken lines as short history.
-Use this history only if it is relevant to the same topic.
+TASKS:
+For each conversation segment, perform the following analysis:
 
-TASK:
-Generate ONE fluent, natural sentence that the user can say next in the conversation.
+1. Conversation Understanding
+   - Identify the main topic being discussed
+   - Identify the dominant conversational intent (e.g., question, concern, suggestion, agreement, explanation)
+   - Detect the emotional tone of the group (e.g., supportive, neutral, tense, confused, enthusiastic)
 
-RULES:
-- Output ONLY the sentence to speak.
-- Maximum 1–2 lines.
-- No questions.
-- No acknowledgements or fillers.
-- No emojis.
-- No explanations.
-- No analysis.
-- No AI or system mentions.
-- Never repeat previous responses.
-- MUST be in ${languageName}.
+2. Participation Timing
+   - Decide whether this is a good moment for the user to speak, a neutral moment, or a better moment to listen
+   - Base this on turn-taking, openness of the discussion, and conversational flow
 
-STYLE REQUIREMENTS:
-- Sound confident, polite, and professional.
-- Fit smoothly into the current conversation.
-- Match the conversational tone (formal, neutral, tense, supportive, or serious).
-- Apply the specified response style above.
+3. Conversational Cue Generation
+   - Generate 2–3 short, natural response suggestions the user could say aloud
+   - Suggestions must be:
+     • Polite
+     • Context-aware
+     • Non-intrusive
+     • Easy to glance and remember
+   - Do NOT use long sentences
+   - Do NOT force the user to speak
+   - Apply the specified response style above
 
-If the user should not speak yet, output exactly the equivalent of "Wait and listen for a moment." in ${languageName}.`;
+4. Assistive Feedback
+   - Provide a brief cue describing the current conversational state (e.g., "Supportive group", "Open discussion", "Clarification expected")
+
+OUTPUT FORMAT (STRICT):
+Respond ONLY with valid JSON in this exact structure (no markdown, no explanation):
+{
+  "topic": "<identified topic>",
+  "intent": "<identified intent>",
+  "group_mood": "<emotional tone>",
+  "speaking_opportunity": "<good | neutral | listen>",
+  "assistive_cue": "<short descriptive cue>",
+  "suggestions": [
+    "<suggestion 1>",
+    "<suggestion 2>",
+    "<suggestion 3>"
+  ]
+}
+
+IMPORTANT RULES:
+- Never impersonate the user
+- Never generate offensive or dominating responses
+- Never override user choice
+- Focus on confidence-building and inclusion
+- If context is unclear, provide safe, neutral suggestions or advise listening
+- All text content MUST be in ${languageName}
+
+Your goal is to enable confident, inclusive human–AI collaboration during real-time conversations without disrupting natural interaction.`;
 };
 
 serve(async (req) => {
@@ -114,7 +143,7 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 100,
+        max_tokens: 300,
         temperature: 0.7,
       }),
     });
@@ -140,14 +169,34 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const aiResponse = data.choices?.[0]?.message?.content?.trim() || "Wait and listen for a moment.";
+    const aiContent = data.choices?.[0]?.message?.content?.trim() || "";
     
-    console.log("Generated response:", aiResponse);
+    console.log("Raw AI response:", aiContent);
 
-    return new Response(
-      JSON.stringify({ response: aiResponse }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Parse the JSON response from AI
+    try {
+      const parsed = JSON.parse(aiContent);
+      console.log("Parsed response:", parsed);
+      
+      return new Response(
+        JSON.stringify(parsed),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (parseError) {
+      console.error("Failed to parse AI JSON response:", parseError, "Content:", aiContent);
+      // Fallback response
+      return new Response(
+        JSON.stringify({
+          topic: "unknown",
+          intent: "unclear",
+          group_mood: "neutral",
+          speaking_opportunity: "listen",
+          assistive_cue: "Listening mode",
+          suggestions: ["Wait and listen for a moment."]
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   } catch (error) {
     console.error("Error in generate-response:", error);
     return new Response(
