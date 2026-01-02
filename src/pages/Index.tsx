@@ -1,10 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FloatingOrb from "@/components/FloatingOrb";
+import OrbSettings, { OrbSettingsData } from "@/components/OrbSettings";
+
+const STORAGE_KEY = "orb-settings";
+
+const defaultSettings: OrbSettingsData = {
+  responseStyle: "neutral",
+  language: "en",
+};
 
 const Index = () => {
   const [transcript, setTranscript] = useState("");
   const [lastSuggestion, setLastSuggestion] = useState("");
   const [isActive, setIsActive] = useState(false);
+  const [settings, setSettings] = useState<OrbSettingsData>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : defaultSettings;
+    } catch {
+      return defaultSettings;
+    }
+  });
+
+  // Persist settings to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  }, [settings]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -100,7 +121,10 @@ const Index = () => {
           setIsActive(t.length > 0);
         }}
         onSuggestion={setLastSuggestion}
+        settings={settings}
       />
+      
+      <OrbSettings settings={settings} onSettingsChange={setSettings} />
     </div>
   );
 };

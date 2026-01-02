@@ -3,19 +3,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mic, MicOff, Volume2, AlertCircle } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { supabase } from "@/integrations/supabase/client";
+import { OrbSettingsData } from "@/components/OrbSettings";
 
 type OrbState = "idle" | "listening" | "processing" | "suggesting";
 
 interface FloatingOrbProps {
   onTranscriptChange?: (transcript: string) => void;
   onSuggestion?: (suggestion: string) => void;
+  settings?: OrbSettingsData;
 }
 
-// Call AI edge function to generate response with conversation history
-const generateAIResponse = async (transcript: string, recentHistory: string[]): Promise<string> => {
+// Call AI edge function to generate response with conversation history and settings
+const generateAIResponse = async (
+  transcript: string, 
+  recentHistory: string[],
+  settings?: OrbSettingsData
+): Promise<string> => {
   try {
     const { data, error } = await supabase.functions.invoke("generate-response", {
-      body: { transcript, recentHistory },
+      body: { 
+        transcript, 
+        recentHistory,
+        responseStyle: settings?.responseStyle || "neutral",
+        language: settings?.language || "en",
+      },
     });
 
     if (error) {
@@ -98,7 +109,8 @@ const generateLocalResponse = (transcript: string): string => {
 
 const FloatingOrb = ({ 
   onTranscriptChange, 
-  onSuggestion
+  onSuggestion,
+  settings,
 }: FloatingOrbProps) => {
   const [state, setState] = useState<OrbState>("idle");
   const [suggestion, setSuggestion] = useState("");
@@ -161,8 +173,8 @@ const FloatingOrb = ({
           // Keep last 2-3 history items for context
           const recentHistory = conversationHistory.current.slice(-3);
           
-          // Use AI-powered response generation with history
-          const newSuggestion = await generateAIResponse(latestInput, recentHistory);
+          // Use AI-powered response generation with history and settings
+          const newSuggestion = await generateAIResponse(latestInput, recentHistory, settings);
           
           // Add current input to history after processing
           conversationHistory.current.push(latestInput);

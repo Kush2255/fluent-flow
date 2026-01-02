@@ -5,9 +5,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `You are a silent real-time speaking assistant that runs as a small floating dot overlay during live conversations.
+const STYLE_INSTRUCTIONS: Record<string, string> = {
+  neutral: "Use a balanced, professional tone.",
+  formal: "Use corporate, polished language. Avoid slang and casual expressions.",
+  casual: "Use friendly, conversational style. Be approachable but still helpful.",
+  supportive: "Use empathetic, encouraging tone. Be warm and reassuring.",
+};
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  pt: "Portuguese",
+  hi: "Hindi",
+  zh: "Chinese",
+  ja: "Japanese",
+  ko: "Korean",
+  ar: "Arabic",
+};
+
+const buildSystemPrompt = (responseStyle: string, language: string): string => {
+  const styleInstruction = STYLE_INSTRUCTIONS[responseStyle] || STYLE_INSTRUCTIONS.neutral;
+  const languageName = LANGUAGE_NAMES[language] || "English";
+  
+  return `You are a silent real-time speaking assistant that runs as a small floating dot overlay during live conversations.
 
 You are not visible to other participants. You do not explain anything.
+
+RESPONSE STYLE: ${styleInstruction}
+OUTPUT LANGUAGE: Generate all responses in ${languageName}.
 
 You receive:
 - recent_history: the last 2-3 relevant spoken lines (for context only)
@@ -20,9 +47,9 @@ IMPORTANT CONTEXT RULES:
 - Never reuse or adapt a previous response
 
 Your task:
-- Infer the conversational mood from recent_history and current_transcript (formal, neutral, tense, supportive, serious)
-- Adapt the response tone to match the mood
-- Generate ONE fluent, natural sentence the user can say next
+- Infer the conversational mood from recent_history and current_transcript
+- Adapt the response tone to match both the mood AND the specified response style
+- Generate ONE fluent, natural sentence the user can say next IN ${languageName}
 
 STRICT OUTPUT RULES:
 - Output ONLY the sentence to speak
@@ -32,15 +59,17 @@ STRICT OUTPUT RULES:
 - No acknowledgements or fillers
 - No AI or system mentions
 - No repetition of previous responses
+- MUST be in ${languageName}
 
 The sentence must:
 - Directly respond to the current topic
 - Logically follow the recent_history (if relevant)
-- Match the conversational mood
+- Match the conversational mood and specified style
 - Sound confident, natural, and professional
 - Be ready to speak aloud immediately
 
-If no meaningful response can be given, output exactly: "Wait and listen for a moment."`;
+If no meaningful response can be given, output the equivalent of "Wait and listen for a moment." in ${languageName}.`;
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,7 +77,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript, recentHistory } = await req.json();
+    const { transcript, recentHistory, responseStyle = "neutral", language = "en" } = await req.json();
     
     if (!transcript || typeof transcript !== "string" || transcript.trim().length < 3) {
       return new Response(
@@ -63,6 +92,9 @@ serve(async (req) => {
       throw new Error("AI service not configured");
     }
 
+    // Build dynamic system prompt based on settings
+    const systemPrompt = buildSystemPrompt(responseStyle, language);
+
     // Build context message with history if available
     const historyContext = recentHistory && recentHistory.length > 0
       ? `recent_history:\n${recentHistory.map((h: string, i: number) => `${i + 1}. "${h}"`).join("\n")}\n\n`
@@ -70,7 +102,7 @@ serve(async (req) => {
     
     const userMessage = `${historyContext}current_transcript: "${transcript}"`;
 
-    console.log("Processing transcript:", transcript);
+    console.log("Processing transcript:", transcript, "| Style:", responseStyle, "| Language:", language);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -81,7 +113,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
         max_tokens: 100,
