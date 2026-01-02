@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import FloatingOrb from "@/components/FloatingOrb";
 import OrbSettings, { OrbSettingsData } from "@/components/OrbSettings";
 import ConversationHistory, { ConversationEntry } from "@/components/ConversationHistory";
+import { SpeakAssistResponse } from "@/types/speakassist";
 
 const STORAGE_KEY = "orb-settings";
 
@@ -12,7 +13,7 @@ const defaultSettings: OrbSettingsData = {
 
 const Index = () => {
   const [transcript, setTranscript] = useState("");
-  const [lastSuggestion, setLastSuggestion] = useState("");
+  const [lastResponse, setLastResponse] = useState<SpeakAssistResponse | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([]);
   const lastAddedTranscript = useRef("");
@@ -37,8 +38,8 @@ const Index = () => {
   }, []);
 
   // Add user speech and AI response to history
-  const handleSuggestion = useCallback((suggestion: string, spokenText?: string) => {
-    setLastSuggestion(suggestion);
+  const handleSuggestion = useCallback((response: SpeakAssistResponse, spokenText?: string) => {
+    setLastResponse(response);
     
     const now = new Date();
     const newEntries: ConversationEntry[] = [];
@@ -54,12 +55,13 @@ const Index = () => {
       lastAddedTranscript.current = spokenText;
     }
     
-    // Add the AI suggestion
-    if (suggestion && suggestion !== "Wait and listen for a moment.") {
+    // Add the AI response with the first suggestion as main content
+    const mainSuggestion = response.suggestions[0];
+    if (mainSuggestion && mainSuggestion !== "Wait and listen for a moment.") {
       newEntries.push({
         id: `ai-${Date.now()}`,
         type: "ai",
-        content: suggestion,
+        content: mainSuggestion,
         timestamp: now,
       });
     }
@@ -72,7 +74,7 @@ const Index = () => {
   const handleClearHistory = useCallback(() => {
     setConversationHistory([]);
     lastAddedTranscript.current = "";
-    setLastSuggestion("");
+    setLastResponse(null);
     setTranscript("");
   }, []);
 
@@ -82,10 +84,10 @@ const Index = () => {
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="space-y-4">
             <h1 className="text-4xl font-light tracking-tight text-foreground">
-              Speaking Assistant
+              SpeakAssist
             </h1>
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Tap the orb to start listening. Speak naturally and receive real-time suggestions.
+              Your private conversational assistant for confident participation in group discussions.
             </p>
           </div>
 
@@ -101,15 +103,15 @@ const Index = () => {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-orb-glow">2.</span>
-                <span>Speak or let others speak — the assistant captures it live</span>
+                <span>SpeakAssist analyzes the conversation in real-time</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-orb-glow">3.</span>
-                <span>After detecting speech, a natural response suggestion appears</span>
+                <span>Receive context-aware suggestions with timing cues</span>
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-orb-glow">4.</span>
-                <span>Speak the suggestion or wait for the next one</span>
+                <span>Choose to speak when the moment feels right</span>
               </li>
             </ul>
           </div>
@@ -137,6 +139,62 @@ const Index = () => {
               </div>
             )}
           </div>
+
+          {/* Current Analysis Panel */}
+          {lastResponse && (
+            <div className="glass rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full bg-orb-glow" />
+                  <span className="text-sm font-medium text-foreground">
+                    Current Analysis
+                  </span>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-orb-surface text-orb-glow">
+                  {lastResponse.assistive_cue}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Topic:</span>
+                  <p className="text-foreground">{lastResponse.topic}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Mood:</span>
+                  <p className="text-foreground capitalize">{lastResponse.group_mood}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Intent:</span>
+                  <p className="text-foreground capitalize">{lastResponse.intent}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Speak now?</span>
+                  <p className={`capitalize ${
+                    lastResponse.speaking_opportunity === "good" 
+                      ? "text-green-400" 
+                      : lastResponse.speaking_opportunity === "neutral"
+                      ? "text-yellow-400"
+                      : "text-muted-foreground"
+                  }`}>
+                    {lastResponse.speaking_opportunity}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-sm text-muted-foreground">Suggestions:</span>
+                {lastResponse.suggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className="p-3 rounded-lg bg-secondary/50 border border-border"
+                  >
+                    <p className="text-sm text-foreground">{suggestion}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Conversation History */}
           <ConversationHistory entries={conversationHistory} onClear={handleClearHistory} />
