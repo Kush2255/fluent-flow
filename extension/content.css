@@ -163,6 +163,13 @@
   letter-spacing: 0.3px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-btn,
 .close-btn {
   width: 24px;
   height: 24px;
@@ -174,11 +181,118 @@
   font-size: 16px;
   line-height: 1;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.settings-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: rgb(56, 189, 248);
 }
 
 .close-btn:hover {
   background: rgba(239, 68, 68, 0.2);
   color: rgb(239, 68, 68);
+}
+
+/* ===== VIEWS ===== */
+.popup-view {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.popup-view.hidden {
+  display: none;
+}
+
+/* ===== SETTINGS ===== */
+.settings-content {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(220, 225, 240, 0.9);
+}
+
+.setting-select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: rgba(220, 225, 240, 0.95);
+  background: rgba(30, 40, 60, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+}
+
+.setting-select:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+.setting-select option {
+  background: #1a2233;
+  color: rgba(220, 225, 240, 0.95);
+}
+
+.setting-hint {
+  font-size: 10px;
+  color: rgba(150, 160, 180, 0.5);
+}
+
+.save-settings-btn {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f1521;
+  background: linear-gradient(135deg, rgb(56, 189, 248) 0%, rgb(34, 211, 238) 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.save-settings-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+.save-settings-btn:active {
+  transform: translateY(0);
+}
+
+.save-settings-btn.saved {
+  background: linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(16, 185, 129) 100%);
 }
 
 /* ===== SECTIONS ===== */
