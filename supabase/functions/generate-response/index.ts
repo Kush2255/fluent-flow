@@ -72,21 +72,6 @@ For each conversation segment, perform the following analysis:
 4. Assistive Feedback
    - Provide a brief cue describing the current conversational state (e.g., "Supportive group", "Open discussion", "Clarification expected")
 
-OUTPUT FORMAT (STRICT):
-Respond ONLY with valid JSON in this exact structure (no markdown, no explanation):
-{
-  "topic": "<identified topic>",
-  "intent": "<identified intent>",
-  "group_mood": "<emotional tone>",
-  "speaking_opportunity": "<good | neutral | listen>",
-  "assistive_cue": "<short descriptive cue>",
-  "suggestions": [
-    "<suggestion 1>",
-    "<suggestion 2>",
-    "<suggestion 3>"
-  ]
-}
-
 IMPORTANT RULES:
 - Never impersonate the user
 - Never generate offensive or dominating responses
@@ -98,6 +83,70 @@ IMPORTANT RULES:
 Your goal is to enable confident, inclusive human–AI collaboration during real-time conversations without disrupting natural interaction.`;
 };
 
+// Tool definition for structured output
+const speakAssistTool = {
+  type: "function",
+  function: {
+    name: "provide_conversation_analysis",
+    description: "Provide conversation analysis and suggestions for the user",
+    parameters: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          description: "The main topic being discussed"
+        },
+        intent: {
+          type: "string",
+          description: "The dominant conversational intent (e.g., question, concern, suggestion, agreement, explanation)"
+        },
+        group_mood: {
+          type: "string",
+          description: "The emotional tone of the group (e.g., supportive, neutral, tense, confused, enthusiastic)"
+        },
+        speaking_opportunity: {
+          type: "string",
+          enum: ["good", "neutral", "listen"],
+          description: "Whether this is a good moment to speak, neutral, or better to listen"
+        },
+        assistive_cue: {
+          type: "string",
+          description: "A brief cue describing the current conversational state"
+        },
+        suggestions: {
+          type: "array",
+          items: { type: "string" },
+          description: "2-3 short, natural response suggestions the user could say"
+        }
+      },
+      required: ["topic", "intent", "group_mood", "speaking_opportunity", "assistive_cue", "suggestions"],
+      additionalProperties: false
+    }
+  }
+};
+
+const DEFAULT_RESPONSE = {
+  topic: "unknown",
+  intent: "unclear",
+  group_mood: "neutral",
+  speaking_opportunity: "listen",
+  assistive_cue: "Listening mode",
+  suggestions: ["Wait and listen for a moment."]
+};
+
+// Helper to clean markdown code blocks from AI response
+function cleanJsonResponse(content: string): string {
+  let cleaned = content.trim();
+  
+  // Remove markdown code block wrapper if present
+  const codeBlockMatch = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+  
+  return cleaned;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -108,7 +157,7 @@ serve(async (req) => {
     
     if (!transcript || typeof transcript !== "string" || transcript.trim().length < 3) {
       return new Response(
-        JSON.stringify({ response: "Wait and listen for a moment." }),
+        JSON.stringify(DEFAULT_RESPONSE),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -127,10 +176,11 @@ serve(async (req) => {
       ? `recent_history:\n${recentHistory.map((h: string, i: number) => `${i + 1}. "${h}"`).join("\n")}\n\n`
       : "";
     
-    const userMessage = `${historyContext}current_transcript: "${transcript}"`;
+    const userMessage = `Analyze this conversation and provide suggestions:\n\n${historyContext}current_transcript: "${transcript}"`;
 
     console.log("Processing transcript:", transcript, "| Style:", responseStyle, "| Language:", language);
 
+    // Use tool calling for guaranteed structured output
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -143,7 +193,9 @@ serve(async (req) => {
           { role: "system", content: systemPrompt },
           { role: "user", content: userMessage },
         ],
-        max_tokens: 300,
+        tools: [speakAssistTool],
+        tool_choice: { type: "function", function: { name: "provide_conversation_analysis" } },
+        max_tokens: 500,
         temperature: 0.7,
       }),
     });
@@ -169,34 +221,54 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const aiContent = data.choices?.[0]?.message?.content?.trim() || "";
-    
-    console.log("Raw AI response:", aiContent);
+    console.log("AI response data:", JSON.stringify(data, null, 2));
 
-    // Parse the JSON response from AI
-    try {
-      const parsed = JSON.parse(aiContent);
-      console.log("Parsed response:", parsed);
-      
-      return new Response(
-        JSON.stringify(parsed),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (parseError) {
-      console.error("Failed to parse AI JSON response:", parseError, "Content:", aiContent);
-      // Fallback response
-      return new Response(
-        JSON.stringify({
-          topic: "unknown",
-          intent: "unclear",
-          group_mood: "neutral",
-          speaking_opportunity: "listen",
-          assistive_cue: "Listening mode",
-          suggestions: ["Wait and listen for a moment."]
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Try to extract from tool call first (preferred method)
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      try {
+        const parsed = JSON.parse(toolCall.function.arguments);
+        console.log("Parsed tool call response:", parsed);
+        
+        // Validate required fields
+        if (parsed.topic && parsed.suggestions && Array.isArray(parsed.suggestions)) {
+          return new Response(
+            JSON.stringify(parsed),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (parseError) {
+        console.error("Failed to parse tool call arguments:", parseError);
+      }
     }
+
+    // Fallback: try to parse from message content (for models that don't support tools well)
+    const aiContent = data.choices?.[0]?.message?.content?.trim() || "";
+    if (aiContent) {
+      console.log("Raw AI content fallback:", aiContent);
+      try {
+        const cleanedContent = cleanJsonResponse(aiContent);
+        const parsed = JSON.parse(cleanedContent);
+        console.log("Parsed content response:", parsed);
+        
+        if (parsed.topic && parsed.suggestions && Array.isArray(parsed.suggestions)) {
+          return new Response(
+            JSON.stringify(parsed),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } catch (parseError) {
+        console.error("Failed to parse content:", parseError);
+      }
+    }
+
+    // Return default response if all parsing fails
+    console.log("All parsing methods failed, returning default response");
+    return new Response(
+      JSON.stringify(DEFAULT_RESPONSE),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
   } catch (error) {
     console.error("Error in generate-response:", error);
     return new Response(
