@@ -41,42 +41,84 @@
       <div id="speakassist-popup" class="hidden">
         <div class="popup-header">
           <span class="popup-title">SpeakAssist</span>
-          <button class="close-btn">&times;</button>
+          <div class="header-actions">
+            <button class="settings-btn" title="Settings">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+              </svg>
+            </button>
+            <button class="close-btn">&times;</button>
+          </div>
         </div>
         
-        <div class="popup-section transcript-section hidden">
-          <div class="section-label">Live Transcript</div>
-          <div class="transcript-text"></div>
-        </div>
-        
-        <div class="popup-section analysis-section hidden">
-          <div class="analysis-header">
-            <span class="cue-badge"></span>
-            <div class="opportunity">
-              <span class="opp-dot"></span>
-              <span class="opp-text"></span>
+        <div class="popup-view main-view">
+          <div class="popup-section transcript-section hidden">
+            <div class="section-label">Live Transcript</div>
+            <div class="transcript-text"></div>
+          </div>
+          
+          <div class="popup-section analysis-section hidden">
+            <div class="analysis-header">
+              <span class="cue-badge"></span>
+              <div class="opportunity">
+                <span class="opp-dot"></span>
+                <span class="opp-text"></span>
+              </div>
+            </div>
+            
+            <div class="analysis-tags">
+              <span class="tag topic-tag"></span>
+              <span class="tag mood-tag"></span>
+              <span class="tag intent-tag"></span>
             </div>
           </div>
           
-          <div class="analysis-tags">
-            <span class="tag topic-tag"></span>
-            <span class="tag mood-tag"></span>
-            <span class="tag intent-tag"></span>
+          <div class="popup-section suggestions-section hidden">
+            <div class="section-label">Suggestions</div>
+            <div class="suggestions-list"></div>
+          </div>
+          
+          <div class="popup-section idle-section">
+            <div class="idle-message">
+              <svg class="idle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              </svg>
+              <p>Click the orb to start listening</p>
+            </div>
           </div>
         </div>
         
-        <div class="popup-section suggestions-section hidden">
-          <div class="section-label">Suggestions</div>
-          <div class="suggestions-list"></div>
-        </div>
-        
-        <div class="popup-section idle-section">
-          <div class="idle-message">
-            <svg class="idle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-            </svg>
-            <p>Click the orb to start listening</p>
+        <div class="popup-view settings-view hidden">
+          <div class="settings-content">
+            <div class="setting-group">
+              <label class="setting-label">Response Style</label>
+              <select id="speakassist-style" class="setting-select">
+                <option value="formal">Formal</option>
+                <option value="casual">Casual</option>
+                <option value="supportive">Supportive</option>
+                <option value="neutral">Neutral</option>
+              </select>
+              <span class="setting-hint">How suggestions are phrased</span>
+            </div>
+            
+            <div class="setting-group">
+              <label class="setting-label">Language</label>
+              <select id="speakassist-lang" class="setting-select">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+              </select>
+              <span class="setting-hint">Recognition & response language</span>
+            </div>
+            
+            <button class="save-settings-btn">Save Settings</button>
           </div>
         </div>
         
@@ -94,12 +136,68 @@
     // Event listeners
     container.querySelector("#speakassist-orb").addEventListener("click", handleOrbClick);
     container.querySelector(".close-btn").addEventListener("click", () => togglePopup(false));
+    container.querySelector(".settings-btn").addEventListener("click", toggleSettings);
+    container.querySelector(".save-settings-btn").addEventListener("click", saveSettings);
+    
+    // Initialize settings selects
+    updateSettingsUI();
     
     // Position bottom-right
     container.style.right = "20px";
     container.style.bottom = "20px";
     
     return container;
+  }
+  
+  function updateSettingsUI() {
+    const styleSelect = document.querySelector("#speakassist-style");
+    const langSelect = document.querySelector("#speakassist-lang");
+    if (styleSelect) styleSelect.value = settings.responseStyle || "neutral";
+    if (langSelect) langSelect.value = settings.language || "en";
+  }
+  
+  function toggleSettings() {
+    const mainView = document.querySelector(".main-view");
+    const settingsView = document.querySelector(".settings-view");
+    
+    if (settingsView.classList.contains("hidden")) {
+      mainView.classList.add("hidden");
+      settingsView.classList.remove("hidden");
+      updateSettingsUI();
+    } else {
+      settingsView.classList.add("hidden");
+      mainView.classList.remove("hidden");
+    }
+  }
+  
+  function saveSettings() {
+    const styleSelect = document.querySelector("#speakassist-style");
+    const langSelect = document.querySelector("#speakassist-lang");
+    const saveBtn = document.querySelector(".save-settings-btn");
+    
+    settings.responseStyle = styleSelect.value;
+    settings.language = langSelect.value;
+    
+    // Update speech recognition language if active
+    if (recognition) {
+      recognition.lang = settings.language === "en" ? "en-US" : settings.language;
+    }
+    
+    // Save to background
+    chrome.runtime.sendMessage({ 
+      type: "SAVE_SETTINGS", 
+      data: settings 
+    });
+    
+    // Visual feedback
+    saveBtn.textContent = "Saved!";
+    saveBtn.classList.add("saved");
+    
+    setTimeout(() => {
+      saveBtn.textContent = "Save Settings";
+      saveBtn.classList.remove("saved");
+      toggleSettings();
+    }, 1000);
   }
 
   function makeDraggable(element) {
