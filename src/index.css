@@ -4,7 +4,55 @@
 
 @layer base {
   :root {
-    /* Dark ambient theme for floating assistant */
+    /* Light theme */
+    --background: 210 20% 98%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 180 70% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 220 15% 20%;
+
+    --muted: 210 15% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 180 60% 38%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 15% 88%;
+    --input: 210 15% 88%;
+    --ring: 180 70% 40%;
+
+    --radius: 1rem;
+
+    --orb-bg: 210 15% 95%;
+    --orb-glow: 180 80% 45%;
+    --orb-glow-secondary: 200 70% 45%;
+    --orb-surface: 210 15% 90%;
+    --orb-text: 220 20% 10%;
+    --orb-text-muted: 215 15% 50%;
+
+    --glass-bg: 0 0% 100% / 0.8;
+    --glass-border: 210 15% 85% / 0.5;
+    --glass-blur: 20px;
+
+    --pulse-duration: 2s;
+    --transition-fast: 150ms;
+    --transition-normal: 300ms;
+    --transition-slow: 500ms;
+  }
+
+  .dark {
     --background: 220 20% 4%;
     --foreground: 210 20% 95%;
 
@@ -33,9 +81,6 @@
     --input: 220 15% 18%;
     --ring: 180 70% 50%;
 
-    --radius: 1rem;
-
-    /* Orb-specific tokens */
     --orb-bg: 220 25% 10%;
     --orb-glow: 180 80% 55%;
     --orb-glow-secondary: 200 70% 50%;
@@ -43,16 +88,8 @@
     --orb-text: 210 20% 95%;
     --orb-text-muted: 215 15% 60%;
 
-    /* Glass effect */
     --glass-bg: 220 25% 8% / 0.85;
     --glass-border: 220 20% 25% / 0.3;
-    --glass-blur: 20px;
-
-    /* Animations */
-    --pulse-duration: 2s;
-    --transition-fast: 150ms;
-    --transition-normal: 300ms;
-    --transition-slow: 500ms;
   }
 }
 
