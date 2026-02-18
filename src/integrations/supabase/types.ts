@@ -14,7 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      interview_sessions: {
+        Row: {
+          category: string | null
+          confidence_score: number | null
+          created_at: string
+          duration_seconds: number | null
+          feedback: Json | null
+          filler_word_count: number | null
+          fluency_score: number | null
+          grammar_score: number | null
+          id: string
+          mode: string
+          pronunciation_score: number | null
+          role: string | null
+          speaking_speed: number | null
+          transcript: string | null
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          feedback?: Json | null
+          filler_word_count?: number | null
+          fluency_score?: number | null
+          grammar_score?: number | null
+          id?: string
+          mode?: string
+          pronunciation_score?: number | null
+          role?: string | null
+          speaking_speed?: number | null
+          transcript?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          duration_seconds?: number | null
+          feedback?: Json | null
+          filler_word_count?: number | null
+          fluency_score?: number | null
+          grammar_score?: number | null
+          id?: string
+          mode?: string
+          pronunciation_score?: number | null
+          role?: string | null
+          speaking_speed?: number | null
+          transcript?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          preferred_role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          preferred_role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          preferred_role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
