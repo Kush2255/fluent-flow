@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings, X, Volume2, Mic, Globe, Palette, BarChart3 } from "lucide-react";
+import { Settings, X, Volume2, Mic, Globe, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { UserSettings } from "@/types/fluent-flow";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useAudioDevices } from "@/hooks/useAudioDevices";
+import MicrophoneSelector from "@/components/MicrophoneSelector";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -31,6 +33,7 @@ const SettingsPanel = ({ open, onClose }: SettingsPanelProps) => {
   );
 
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const { devices, selectedDeviceId, setSelectedDeviceId, refreshDevices, micStatus } = useAudioDevices();
 
   useEffect(() => {
     const loadVoices = () => setVoices(speechSynthesis.getVoices());
@@ -70,7 +73,24 @@ const SettingsPanel = ({ open, onClose }: SettingsPanelProps) => {
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Voice Feedback */}
+          {/* Microphone Settings */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Mic className="w-4 h-4 text-primary" />
+              Microphone Settings
+            </div>
+            <MicrophoneSelector
+              devices={devices}
+              selectedDeviceId={selectedDeviceId}
+              onSelect={setSelectedDeviceId}
+              onRefresh={refreshDevices}
+              micStatus={micStatus}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Voice & Audio */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Volume2 className="w-4 h-4 text-primary" />
@@ -78,7 +98,7 @@ const SettingsPanel = ({ open, onClose }: SettingsPanelProps) => {
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Voice Feedback</Label>
+                <Label className="text-sm">Voice Feedback (TTS)</Label>
                 <Switch checked={settings.voiceFeedback} onCheckedChange={v => update("voiceFeedback", v)} />
               </div>
               <div className="flex items-center justify-between">
