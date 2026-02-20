@@ -106,7 +106,7 @@ const SettingsPanel = ({ open, onClose }: SettingsPanelProps) => {
                 <Switch checked={settings.autoStartListening} onCheckedChange={v => update("autoStartListening", v)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-sm">Speech Speed: {settings.speechSpeed.toFixed(1)}x</Label>
+                <Label className="text-sm">Speech Speed: {(settings.speechSpeed ?? 1).toFixed(1)}x</Label>
                 <Slider value={[settings.speechSpeed]} min={0.5} max={2} step={0.1} onValueChange={([v]) => update("speechSpeed", v)} />
               </div>
               {voices.length > 0 && (
