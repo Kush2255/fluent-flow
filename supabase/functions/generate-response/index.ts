@@ -69,7 +69,18 @@ For each conversation segment, perform the following analysis:
    - Do NOT force the user to speak
    - Apply the specified response style above
 
-4. Assistive Feedback
+4. Sentence Correction
+   - Analyze the user's transcript for grammar, vocabulary, and sentence structure errors
+   - Provide the corrected version of what they said as a complete, well-formed sentence
+   - If the original is already correct, return it as-is with minor improvements for naturalness
+
+5. Pronunciation & Speaking Guide
+   - Provide 2-3 practical tips on HOW to say the corrected sentence naturally
+   - Include guidance on: word stress, intonation patterns, pacing, pauses, and linking words
+   - Example: "Stress the word 'IMPORTANT' — say it slower and louder. Pause briefly after 'however' before continuing."
+   - Use simple, actionable language
+
+6. Assistive Feedback
    - Provide a brief cue describing the current conversational state (e.g., "Supportive group", "Open discussion", "Clarification expected")
 
 IMPORTANT RULES:
@@ -117,9 +128,18 @@ const speakAssistTool = {
           type: "array",
           items: { type: "string" },
           description: "2-3 short, natural response suggestions the user could say"
+        },
+        corrected_sentence: {
+          type: "string",
+          description: "The corrected, well-formed version of what the user said. Fix grammar, vocabulary, and structure errors."
+        },
+        pronunciation_tips: {
+          type: "array",
+          items: { type: "string" },
+          description: "2-3 practical tips on how to speak the corrected sentence naturally, including word stress, intonation, pacing, and pauses."
         }
       },
-      required: ["topic", "intent", "group_mood", "speaking_opportunity", "assistive_cue", "suggestions"],
+      required: ["topic", "intent", "group_mood", "speaking_opportunity", "assistive_cue", "suggestions", "corrected_sentence", "pronunciation_tips"],
       additionalProperties: false
     }
   }
@@ -131,7 +151,9 @@ const DEFAULT_RESPONSE = {
   group_mood: "neutral",
   speaking_opportunity: "listen",
   assistive_cue: "Listening mode",
-  suggestions: ["Wait and listen for a moment."]
+  suggestions: ["Wait and listen for a moment."],
+  corrected_sentence: "",
+  pronunciation_tips: [],
 };
 
 // Helper to clean markdown code blocks from AI response
