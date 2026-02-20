@@ -5,6 +5,8 @@ export interface SpeakAssistResponse {
   speaking_opportunity: "good" | "neutral" | "listen";
   assistive_cue: string;
   suggestions: string[];
+  corrected_sentence?: string;
+  pronunciation_tips?: string[];
 }
 
 export const DEFAULT_RESPONSE: SpeakAssistResponse = {
@@ -14,4 +16,6 @@ export const DEFAULT_RESPONSE: SpeakAssistResponse = {
   speaking_opportunity: "listen",
   assistive_cue: "Listening mode",
   suggestions: ["Wait and listen for a moment."],
+  corrected_sentence: "",
+  pronunciation_tips: [],
 };

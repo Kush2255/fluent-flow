@@ -7,7 +7,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import useSpeechAnalysis from "@/hooks/useSpeechAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import { SpeakAssistResponse, DEFAULT_RESPONSE } from "@/types/speakassist";
-import { Lightbulb, TrendingUp, MessageCircle } from "lucide-react";
+import { Lightbulb, TrendingUp, MessageCircle, CheckCircle2, Volume2, Megaphone } from "lucide-react";
 
 interface AssistantModeProps {
   settings?: {
@@ -216,6 +216,48 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
                 ))}
               </div>
             </div>
+
+            {/* Corrected Sentence */}
+            {aiResponse.corrected_sentence && (
+              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-medium text-emerald-400">Corrected Sentence</span>
+                </div>
+                <div className="p-3 rounded-lg bg-card/50 border border-border">
+                  <p className="text-sm text-foreground leading-relaxed">{aiResponse.corrected_sentence}</p>
+                </div>
+                {transcript && (
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">You said:</span> <span className="line-through opacity-60">{transcript}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pronunciation & Speaking Guide */}
+            {aiResponse.pronunciation_tips && aiResponse.pronunciation_tips.length > 0 && (
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-medium text-amber-400">How to Say It</span>
+                </div>
+                <div className="space-y-2">
+                  {aiResponse.pronunciation_tips.map((tip, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.15 }}
+                      className="flex items-start gap-2 p-3 rounded-lg bg-card/50 border border-border"
+                    >
+                      <Volume2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                      <p className="text-sm text-foreground">{tip}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
