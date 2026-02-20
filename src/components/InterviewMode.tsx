@@ -107,7 +107,7 @@ const InterviewMode = () => {
   const { user } = useAuth();
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isStarted, setIsStarted] = useState(false);
-  const [category, setCategory] = useState<keyof typeof INTERVIEW_CATEGORIES>("hr");
+  const [category, setCategory] = useState<string>("all");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [feedback, setFeedback] = useState<InterviewFeedback | null>(null);
@@ -152,7 +152,7 @@ const InterviewMode = () => {
     }
 
     // Filter by category
-    if (category !== "hr") {
+    if (category !== "all") {
       const catFiltered = filtered.filter(q => q.category === category);
       if (catFiltered.length > 0) filtered = catFiltered;
     }
@@ -315,10 +315,10 @@ const InterviewMode = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm text-muted-foreground">Filter Category</label>
-                <Select value={category} onValueChange={(v: keyof typeof INTERVIEW_CATEGORIES) => setCategory(v)}>
+                <Select value={category} onValueChange={(v) => setCategory(v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hr">All Questions</SelectItem>
+                    <SelectItem value="all">All Questions</SelectItem>
                     {Object.entries(INTERVIEW_CATEGORIES).map(([key, label]) => (
                       <SelectItem key={key} value={key}>{label}</SelectItem>
                     ))}

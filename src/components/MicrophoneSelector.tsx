@@ -39,7 +39,7 @@ const MicrophoneSelector = ({
             <SelectValue placeholder="Select mic" />
           </SelectTrigger>
           <SelectContent>
-            {devices.map((d) => (
+            {devices.filter(d => d.deviceId).map((d) => (
               <SelectItem key={d.deviceId} value={d.deviceId}>
                 {d.label}
               </SelectItem>
@@ -60,7 +60,7 @@ const MicrophoneSelector = ({
             <SelectValue placeholder="Select microphone" />
           </SelectTrigger>
           <SelectContent>
-            {devices.map((d) => (
+            {devices.filter(d => d.deviceId).map((d) => (
               <SelectItem key={d.deviceId} value={d.deviceId}>
                 {d.label}
               </SelectItem>
