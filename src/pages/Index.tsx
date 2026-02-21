@@ -9,14 +9,15 @@ import LearningMode from "@/components/LearningMode";
 import QAMode from "@/components/QAMode";
 import Dashboard from "@/components/Dashboard";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
+import SessionHistory from "@/components/SessionHistory";
 import SettingsPanel from "@/components/SettingsPanel";
 import ThemeToggle from "@/components/ThemeToggle";
 import { AppMode, DEFAULT_USER_SETTINGS } from "@/types/fluent-flow";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { Settings, Sparkles, LogOut, BarChart3, LayoutDashboard } from "lucide-react";
+import { Settings, Sparkles, LogOut, BarChart3, LayoutDashboard, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type PageView = "dashboard" | "practice" | "analytics";
+type PageView = "dashboard" | "practice" | "analytics" | "history";
 
 const Index = () => {
   const { user, signOut } = useAuth();
@@ -84,6 +85,15 @@ const Index = () => {
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Analytics</span>
               </Button>
+              <Button
+                variant={pageView === "history" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setPageView("history")}
+                className="gap-1.5"
+              >
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">History</span>
+              </Button>
             </div>
 
             <div className="flex items-center gap-1">
@@ -131,6 +141,12 @@ const Index = () => {
           {pageView === "analytics" && (
             <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <AnalyticsDashboard />
+            </motion.div>
+          )}
+
+          {pageView === "history" && (
+            <motion.div key="history" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <SessionHistory />
             </motion.div>
           )}
         </AnimatePresence>
