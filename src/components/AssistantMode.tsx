@@ -4,16 +4,19 @@ import MicButton from "@/components/MicButton";
 import MicrophoneSelector from "@/components/MicrophoneSelector";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import SpeakingFeedback from "@/components/SpeakingFeedback";
+import AudioWaveform from "@/components/AudioWaveform";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import useSpeechAnalysis from "@/hooks/useSpeechAnalysis";
 import { useAudioDevices } from "@/hooks/useAudioDevices";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { SpeakAssistResponse, DEFAULT_RESPONSE } from "@/types/speakassist";
 import {
   Lightbulb, TrendingUp, MessageCircle, CheckCircle2,
-  Volume2, Megaphone, Mic, AlertCircle
+  Volume2, Megaphone, Mic, AlertCircle, RotateCcw
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
 interface AssistantModeProps {
@@ -26,6 +29,7 @@ interface AssistantModeProps {
 type AssistantStatus = "idle" | "listening" | "processing" | "analyzing";
 
 const AssistantMode = ({ settings }: AssistantModeProps) => {
+  const { user } = useAuth();
   const [aiResponse, setAiResponse] = useState<SpeakAssistResponse | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<AssistantStatus>("idle");
@@ -103,6 +107,31 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
     if (transcript) analyzeText(transcript);
   }, [transcript, analyzeText]);
 
+  const saveAssistantSession = async (text: string, response: SpeakAssistResponse) => {
+    if (!user) return;
+    try {
+      await supabase.from("interview_sessions").insert({
+        user_id: user.id,
+        mode: "assistant",
+        transcript: text,
+        grammar_score: analysis.grammarScore,
+        fluency_score: analysis.fluencyScore,
+        confidence_score: analysis.confidenceScore,
+        pronunciation_score: analysis.pronunciationScore,
+        speaking_speed: analysis.speakingSpeed,
+        filler_word_count: analysis.fillerWords.reduce((s, f) => s + f.count, 0),
+        feedback: JSON.stringify({
+          corrected_sentence: response.corrected_sentence,
+          pronunciation_tips: response.pronunciation_tips,
+          suggestions: response.suggestions,
+          topic: response.topic,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to save assistant session:", e);
+    }
+  };
+
   const generateAISuggestions = async (text: string) => {
     if (!text) return;
     setIsProcessing(true);
@@ -122,6 +151,12 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
       if (data?.suggestions && Array.isArray(data.suggestions)) {
         setAiResponse(data);
         if (data.confidence_score) setConfidence(data.confidence_score);
+        // Save session to DB
+        await saveAssistantSession(text, data);
+        // Read corrected sentence aloud
+        if (data.corrected_sentence) {
+          setTimeout(() => speak(data.corrected_sentence), 500);
+        }
       }
     } catch (error) {
       console.error("Failed to generate suggestions:", error);
@@ -149,6 +184,7 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
       setConfidence(null);
       hasTriggeredRef.current = false;
       lastTranscriptRef.current = "";
+      stopTTS();
       try {
         const constraints: MediaStreamConstraints = {
           audio: {
@@ -169,6 +205,36 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
       }
     }
   }, [isListening, startListening, stopListening, resetTranscript, resetAnalysis, selectedDeviceId, transcript]);
+
+  const handlePracticeAgain = useCallback(() => {
+    resetTranscript();
+    resetAnalysis();
+    setAiResponse(null);
+    setConfidence(null);
+    hasTriggeredRef.current = false;
+    lastTranscriptRef.current = "";
+    stopTTS();
+    // Auto-start listening
+    setTimeout(async () => {
+      try {
+        const constraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100,
+            ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
+          },
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        stream.getTracks().forEach(t => t.stop());
+        setMicActive(true);
+        startListening();
+      } catch (error) {
+        console.error("Mic error:", error);
+      }
+    }, 300);
+  }, [resetTranscript, resetAnalysis, selectedDeviceId, startListening, stopTTS]);
 
   const handleReadAloud = useCallback(() => {
     if (isSpeaking) {
@@ -230,6 +296,13 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
           </span>
         )}
       </div>
+
+      {/* Waveform */}
+      {isListening && (
+        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
+          <AudioWaveform isActive={isListening} deviceId={selectedDeviceId} />
+        </motion.div>
+      )}
 
       {/* Mic Button */}
       <div className="flex justify-center py-6">
@@ -378,6 +451,12 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
                 ))}
               </div>
             </div>
+
+            {/* Practice Again Button */}
+            <Button onClick={handlePracticeAgain} className="w-full gap-2" variant="outline">
+              <RotateCcw className="w-4 h-4" />
+              Practice Again
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
