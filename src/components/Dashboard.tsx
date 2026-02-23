@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Play, TrendingUp, Target, Clock, Zap, Award, Sparkles, TrendingDown } from "lucide-react";
+import { Play, TrendingUp, Target, Clock, Zap, Award, Sparkles, TrendingDown, Flame, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface DashboardProps {
@@ -18,6 +18,8 @@ interface SessionStats {
   recentSessions: any[];
   weeklyImprovement: number;
   thisWeekSessions: number;
+  streak: number;
+  bestScore: number;
 }
 
 const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
@@ -25,6 +27,7 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
   const [stats, setStats] = useState<SessionStats>({
     totalSessions: 0, avgGrammar: 0, avgFluency: 0, avgConfidence: 0,
     recentSessions: [], weeklyImprovement: 0, thisWeekSessions: 0,
+    streak: 0, bestScore: 0,
   });
 
   useEffect(() => {
@@ -42,7 +45,6 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
         const avgFluency = Math.round(data.reduce((s, d) => s + (d.fluency_score || 0), 0) / data.length);
         const avgConfidence = Math.round(data.reduce((s, d) => s + (d.confidence_score || 0), 0) / data.length);
 
-        // Weekly improvement calc
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -60,12 +62,26 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
         const lastWeekAvg = avgScore(lastWeek);
         const weeklyImprovement = lastWeekAvg > 0 ? thisWeekAvg - lastWeekAvg : 0;
 
+        // Calculate streak (consecutive days with sessions)
+        const sessionDates = [...new Set(data.map(s => new Date(s.created_at).toDateString()))];
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < 30; i++) {
+          const checkDate = new Date(today.getTime() - i * 24 * 60 * 60 * 1000).toDateString();
+          if (sessionDates.includes(checkDate)) {
+            streak++;
+          } else if (i > 0) break;
+        }
+
+        // Best single session score
+        const bestScore = Math.max(...data.map(s =>
+          Math.round(((s.grammar_score || 0) + (s.fluency_score || 0) + (s.confidence_score || 0)) / 3)
+        ));
+
         setStats({
-          totalSessions: data.length,
-          avgGrammar, avgFluency, avgConfidence,
-          recentSessions: data.slice(0, 5),
-          weeklyImprovement,
-          thisWeekSessions: thisWeek.length,
+          totalSessions: data.length, avgGrammar, avgFluency, avgConfidence,
+          recentSessions: data.slice(0, 5), weeklyImprovement,
+          thisWeekSessions: thisWeek.length, streak, bestScore,
         });
       }
     };
@@ -79,6 +95,18 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
     { label: "Confidence", value: `${stats.avgConfidence}%`, icon: TrendingUp, color: "text-primary" },
   ];
 
+  // Pick a motivational message
+  const getMotivation = () => {
+    if (stats.streak >= 7) return { emoji: "🔥", text: `Amazing ${stats.streak}-day streak! You're on fire!` };
+    if (stats.streak >= 3) return { emoji: "💪", text: `${stats.streak}-day streak! Keep the momentum going!` };
+    if (stats.bestScore >= 90) return { emoji: "🏆", text: `Your best score is ${stats.bestScore}% — impressive!` };
+    if (stats.totalSessions >= 20) return { emoji: "🎯", text: `${stats.totalSessions} sessions completed! Consistency is key.` };
+    if (stats.totalSessions >= 5) return { emoji: "⭐", text: "You're building great habits. Keep practicing daily!" };
+    return null;
+  };
+
+  const motivation = getMotivation();
+
   return (
     <div className="space-y-8">
       {/* Welcome */}
@@ -89,7 +117,7 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
         <p className="text-muted-foreground">Ready to level up your speaking skills?</p>
       </motion.div>
 
-      {/* Motivational Insight */}
+      {/* Weekly Improvement Insight */}
       {stats.weeklyImprovement !== 0 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -119,11 +147,28 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
         </motion.div>
       )}
 
+      {/* Motivational Insight */}
+      {motivation && (
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-4 rounded-2xl bg-accent/10 border border-accent/20 flex items-center gap-3"
+        >
+          {stats.streak >= 3 ? (
+            <Flame className="w-6 h-6 text-amber-500" />
+          ) : (
+            <Trophy className="w-6 h-6 text-primary" />
+          )}
+          <p className="text-sm font-medium text-foreground">{motivation.emoji} {motivation.text}</p>
+        </motion.div>
+      )}
+
       {/* Start Interview CTA */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.15 }}
         className="p-6 rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/20"
       >
         <div className="flex items-center justify-between">
@@ -145,7 +190,7 @@ const Dashboard = ({ onStartInterview, displayName }: DashboardProps) => {
             key={card.label}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 + i * 0.05 }}
+            transition={{ delay: 0.2 + i * 0.05 }}
             className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors"
           >
             <card.icon className={`w-5 h-5 ${card.color} mb-2`} />
