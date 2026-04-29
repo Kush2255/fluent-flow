@@ -88,7 +88,7 @@ const LearningMode = () => {
 
   // Timer countdown
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (isSessionActive && timeRemaining > 0 && isListening) {
       timer = setInterval(() => {
         setTimeRemaining(prev => {

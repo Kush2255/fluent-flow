@@ -11,6 +11,7 @@ interface UseSpeechRecognitionReturn {
   interimTranscript: string;
   isListening: boolean;
   isSupported: boolean;
+  error: string | null;
   startListening: () => void;
   stopListening: () => void;
   resetTranscript: () => void;
@@ -25,79 +26,149 @@ export const useSpeechRecognition = (
   const [interimTranscript, setInterimTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const shouldListenRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Initialize recognition ONCE
   useEffect(() => {
     const SpeechRecognitionAPI =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    if (SpeechRecognitionAPI) {
-      setIsSupported(true);
-      const recognition = new SpeechRecognitionAPI();
-      recognition.continuous = continuous;
-      recognition.interimResults = interimResults;
-      recognition.lang = lang;
-
-      recognition.onresult = (event) => {
-        let finalTranscript = "";
-        let interim = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-          } else {
-            interim += result[0].transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          setTranscript((prev) => prev + " " + finalTranscript);
-        }
-        setInterimTranscript(interim);
-      };
-
-      recognition.onerror = (event) => {
-        console.error("Speech recognition error:", event.error);
-        if (event.error === "not-allowed") {
-          setIsListening(false);
-        }
-      };
-
-      recognition.onend = () => {
-        if (isListening && continuous) {
-          recognition.start();
-        } else {
-          setIsListening(false);
-        }
-      };
-
-      recognitionRef.current = recognition;
+    if (!SpeechRecognitionAPI) {
+      setIsSupported(false);
+      return;
     }
 
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+    setIsSupported(true);
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = continuous;
+    recognition.interimResults = interimResults;
+    recognition.lang = lang;
+    // @ts-expect-error - non-standard but widely supported
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      let finalChunk = "";
+      let interim = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const text = result[0].transcript;
+        if (result.isFinal) {
+          finalChunk += text;
+        } else {
+          interim += text;
+        }
+      }
+
+      if (finalChunk) {
+        setTranscript((prev) => (prev ? prev + " " : "") + finalChunk.trim());
+      }
+      setInterimTranscript(interim);
+    };
+
+    recognition.onerror = (event) => {
+      console.warn("Speech recognition error:", event.error);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setError("Microphone permission denied. Please allow mic access.");
+        shouldListenRef.current = false;
+        setIsListening(false);
+      } else if (event.error === "no-speech") {
+        // benign — recognition will end and auto-restart
+      } else if (event.error === "audio-capture") {
+        setError("No microphone detected.");
+        shouldListenRef.current = false;
+        setIsListening(false);
+      } else if (event.error === "network") {
+        setError("Network error. Speech recognition needs internet.");
+      } else {
+        setError(event.error);
       }
     };
-  }, [continuous, interimResults, lang, isListening]);
+
+    recognition.onend = () => {
+      isStartingRef.current = false;
+      // Auto-restart if user still wants to listen (continuous mode workaround for Chrome)
+      if (shouldListenRef.current) {
+        if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+        restartTimeoutRef.current = setTimeout(() => {
+          if (shouldListenRef.current && recognitionRef.current && !isStartingRef.current) {
+            try {
+              isStartingRef.current = true;
+              recognitionRef.current.start();
+            } catch (e) {
+              isStartingRef.current = false;
+              // already started — ignore
+            }
+          }
+        }, 250);
+      } else {
+        setIsListening(false);
+        setInterimTranscript("");
+      }
+    };
+
+    recognition.onstart = () => {
+      isStartingRef.current = false;
+      setIsListening(true);
+      setError(null);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      shouldListenRef.current = false;
+      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+      try {
+        recognition.stop();
+      } catch {
+        // ignore
+      }
+      recognitionRef.current = null;
+    };
+  }, [continuous, interimResults, lang]);
 
   const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      setTranscript("");
-      setInterimTranscript("");
-      recognitionRef.current.start();
-      setIsListening(true);
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+    if (shouldListenRef.current) return; // already listening
+
+    setTranscript("");
+    setInterimTranscript("");
+    setError(null);
+    shouldListenRef.current = true;
+
+    try {
+      isStartingRef.current = true;
+      recognition.start();
+    } catch (e) {
+      // InvalidStateError if already started — stop & retry
+      isStartingRef.current = false;
+      try {
+        recognition.stop();
+      } catch {
+        // ignore
+      }
     }
-  }, [isListening]);
+  }, []);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+    shouldListenRef.current = false;
+    if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
+    const recognition = recognitionRef.current;
+    if (recognition) {
+      try {
+        recognition.stop();
+      } catch {
+        // ignore
+      }
     }
-  }, [isListening]);
+    setIsListening(false);
+  }, []);
 
   const resetTranscript = useCallback(() => {
     setTranscript("");
@@ -109,6 +180,7 @@ export const useSpeechRecognition = (
     interimTranscript,
     isListening,
     isSupported,
+    error,
     startListening,
     stopListening,
     resetTranscript,
@@ -158,6 +230,7 @@ interface SpeechRecognitionInstance extends EventTarget {
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
 }
 
 declare global {
