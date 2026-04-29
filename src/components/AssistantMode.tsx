@@ -302,7 +302,7 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
       </div>
 
       {/* Status Indicator */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex items-center justify-center gap-2 flex-wrap">
         <div className={`w-2 h-2 rounded-full ${status === "listening" ? "bg-primary animate-pulse" : status === "analyzing" ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
         <span className={`text-sm font-medium ${statusConfig[status].color}`}>
           {statusConfig[status].label}
@@ -312,6 +312,45 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
             Confidence: {confidence}%
           </span>
         )}
+
+        {/* Recognition status pill */}
+        <AnimatePresence mode="wait">
+          {recognitionError ? (
+            <motion.span
+              key="err"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30"
+              title={recognitionError}
+            >
+              <AlertCircle className="w-3 h-3" />
+              Mic error
+            </motion.span>
+          ) : recognitionPhase === "active" ? (
+            <motion.span
+              key="active"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Recognition active
+            </motion.span>
+          ) : recognitionPhase === "restarting" ? (
+            <motion.span
+              key="restart"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30"
+            >
+              <RotateCcw className="w-3 h-3 animate-spin" />
+              Restarting…
+            </motion.span>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       {/* Waveform */}
