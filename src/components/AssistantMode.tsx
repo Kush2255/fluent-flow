@@ -45,12 +45,29 @@ const AssistantMode = ({ settings }: AssistantModeProps) => {
 
   const {
     transcript, interimTranscript, isListening,
-    isSupported, startListening, stopListening, resetTranscript,
+    isSupported, error: recognitionError,
+    startListening, stopListening, resetTranscript,
   } = useSpeechRecognition({
     continuous: true,
     interimResults: true,
     lang: settings?.language || "en-US",
   });
+
+  // Track restart cycles (recognition briefly drops between auto-restarts)
+  const [recognitionPhase, setRecognitionPhase] = useState<"active" | "restarting" | "idle">("idle");
+  const restartDetectRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isListening) {
+      setRecognitionPhase("active");
+      if (restartDetectRef.current) clearTimeout(restartDetectRef.current);
+    } else if (recognitionPhase === "active") {
+      // briefly mark as restarting; the hook auto-restarts within ~250ms
+      setRecognitionPhase("restarting");
+      if (restartDetectRef.current) clearTimeout(restartDetectRef.current);
+      restartDetectRef.current = setTimeout(() => setRecognitionPhase("idle"), 1500);
+    }
+  }, [isListening]);
 
   const { analysis, analyzeText, resetAnalysis } = useSpeechAnalysis();
   const { speak, stop: stopTTS, isSpeaking } = useTextToSpeech({ rate: 0.9, enabled: true });
